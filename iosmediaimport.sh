@@ -2,13 +2,26 @@
 
 process(){
 
+
+	#
+	#
+	#
+	# Need to add code to check if the file about to be moved already exists,
+	# then add something to filename until it is unique
+	#
+	#
+	# Also need to do a check to only import/delete if file is older
+	# than 30 days so as to leave recent files on the device
+	#
+	#
+
 	i=$1
 
 	# Set file names and extensions
 	fileName=$(basename -- $i)   # IMG_1369.JPG
 	basefile=${fileName%.*}      # IMG_1369
 	extension=${fileName##*.}    # JPG
-	fullDir=$(dirname ${i})      # /home/patrick/iPhone/DCIM/101APPLE
+	fullDir=$(dirname ${i})      # /home/user/iPhone/DCIM/101APPLE
 
 	# Check if file is HEIC, then convert it while moving it
 	if [[ $extension = "HEIC" ]]; then
@@ -62,7 +75,8 @@ fi
 
 # Check to see if tifig is installed
 if ! command -v tifig >/dev/null 2>&1; then
-	printf "tifig is not installed. Any HEIC images will not be converted.\n"
+	printf "tifig should be in the same directory as this script and wasn't found."
+	printf " Any HEIC images will not be converted.\n"
 fi
 
 # Check to see if HandBrakeCLI is installed
@@ -70,13 +84,18 @@ if ! command -v HandBrakeCLI >/dev/null 2>&1; then
 	printf "HandBrakeCLI is not installed. Any MOV files will not be converted.\n"
 fi
 
-
+# Should be pretty unique so as to not override any existing directory
 ROOTHIDDEN=~/.iosmediaimport
+
+# Subdirectory to mount device to. This way config files or anything else can
+# live in ROOTHIDDEN, if that happens at some point.
 HIDDENMOUNT=/iosmountdir
 MOUNTDIR=$ROOTHIDDEN$HIDDENMOUNT
 DCIMDIR=$MOUNTDIR/DCIM
 
 # Check to see if the MOUNTDIR is mounted
+# Do this before checking if it exists, because if it's already mounted,
+# the check below won't find it
 if [[ $(findmnt -M $MOUNTDIR) ]]; then
 
         printf "$MOUNTDIR is already mounted. Unmounting...\n"
@@ -115,6 +134,21 @@ else
 	fi
 fi
 
+# Define import directory
+IMPORTDIR=~/iOSMediaImport
+
+# Check to see if import directory exists
+if [[ -d $IMPORTDIR ]]; then
+	printf "Found import directory $IMPORTDIR.\n"
+else
+	printf "$IMPORTDIR not found. Creating...\n"
+	mkdir $IMPORTDIR
+	if [[ $? -ne 0 ]]; then
+		printf "Error creating $IMPORTDIR. mkdir command exited with error code $?. Exiting.\n"
+		exit 1
+	fi
+fi
+
 printf "Attempting to mount $MOUNTDIR...\n"
 
 # Mount the directory with ifuse
@@ -132,6 +166,7 @@ printf "iOS device mounted successfully.\n"
 
 
 # Recursively loop through all files and directories found in DCIM
+# recursion calls the process method to convert/move files
 recursion $DCIMDIR
 
 
