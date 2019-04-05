@@ -12,11 +12,23 @@ process(){
 
 	# Check if file is HEIC, then convert it while moving it
 	if [[ $extension = "HEIC" ]]; then
+		if ! command -v tifig >/dev/null 2>&1; then
+			printf "tifig is not installed. Any HEIC images will not be converted.\n"
+			# move file
+		fi
 		printf "HEIC file!!!\n"
+
 	elif [[ $extension = "MOV" ]]; then
+		if ! command -v HandBrakeCLI >/dev/null 2>&1; then
+			printf "HandBrakeCLI is not installed. Any MOV files will not be converted.\n"
+			# move file
+		fi
 		printf "MOV file!!!\n"
+
 	else
+		# move file
 		printf "Some other file!!!\r"
+
 	fi
 
 
