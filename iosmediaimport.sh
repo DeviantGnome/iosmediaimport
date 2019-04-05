@@ -12,9 +12,9 @@ process(){
 
 	# Check if file is HEIC, then convert it while moving it
 	if [[ $extension = "HEIC" ]]; then
-		printf "HEIC file!!!\n"
+		printf "HEIC file!!!\r"
 	elif [[ $extension = "MOV" ]]; then
-		printf "MOV file!!!\n"
+		printf "MOV file!!!\r"
 	else
 		printf "Some other file!!!\r"
 	fi
@@ -28,7 +28,6 @@ process(){
 		printf "$fileName not copied from device.\n"
 	fi
 
-	# Move the image file
 	sleep .1s
 
 	# Remove the current line's text in the console
@@ -60,6 +59,17 @@ if ! command -v ifuse >/dev/null 2>&1; then
 	printf "ifuse is not installed. Please install ifuse and retry. Exiting.\n"
 	exit 1
 fi
+
+# Check to see if tifig is installed
+if ! command -v tifig >/dev/null 2>&1; then
+	printf "tifig is not installed. Any HEIC images will not be converted.\n"
+fi
+
+# Check to see if HandBrakeCLI is installed
+if ! command -v HandBrakeCLI >/dev/null 2>&1; then
+	printf "HandBrakeCLI is not installed. Any MOV files will not be converted.\n"
+fi
+
 
 ROOTHIDDEN=~/.iosmediaimport
 HIDDENMOUNT=/iosmountdir
@@ -118,7 +128,7 @@ if [[ $? -ne 0 ]]; then
 	exit 1
 fi
 
-printf "iPhone mounted successfully.\n"
+printf "iOS device mounted successfully.\n"
 
 
 # Recursively loop through all files and directories found in DCIM
