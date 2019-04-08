@@ -73,11 +73,8 @@ if ! command -v ifuse >/dev/null 2>&1; then
 	exit 1
 fi
 
-# Check to see if tifig is installed
-if ! command -v tifig >/dev/null 2>&1; then
-	printf "tifig should be in the same directory as this script and wasn't found."
-	printf " Any HEIC images will not be converted.\n"
-fi
+# Make tifig executable
+chmod +x ./tifig
 
 # Check to see if HandBrakeCLI is installed
 if ! command -v HandBrakeCLI >/dev/null 2>&1; then
