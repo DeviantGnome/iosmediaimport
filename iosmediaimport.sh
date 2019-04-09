@@ -62,10 +62,13 @@ recursion(){
 }
 
 # Check to see that the file is being run as root
-if [[ $EUID -ne 0 ]]; then
-	printf "You must run this as root. Exiting.\n"
-	exit 1
-fi
+#if [[ $EUID -ne 0 ]]; then
+	#printf "You must run this as root. Exiting.\n"
+	#exit 1
+#fi
+
+# Inform user that they will have to grant sudo priveleges
+printf "INFO: This program will require you to grant sudo priveleges for various functionality.\n"
 
 # Check to see if ifuse is installed
 if ! command -v ifuse >/dev/null 2>&1; then
@@ -73,8 +76,13 @@ if ! command -v ifuse >/dev/null 2>&1; then
 	exit 1
 fi
 
-# Make tifig executable
-chmod +x ./tifig
+# Check that tifig is found in the current directory, and make it executable
+if [[ -f tifig ]]; then
+	chmod u+x ./tifig
+else
+	printf "tifig should be in the same directory as this script and wasn't found.\n"
+	printf "Any HEIC images will not be converted.\n"
+fi
 
 # Check to see if HandBrakeCLI is installed
 if ! command -v HandBrakeCLI >/dev/null 2>&1; then
@@ -117,6 +125,8 @@ else
 		printf "Error creating application root directory $ROOTHIDDEN. mkdir command exited with error code $?. Exiting.\n"
 		exit 1
 	fi
+
+	#chown $USER $ROOTHIDDEN
 fi
 
 # Check to see if the MOUNTDIR exists
