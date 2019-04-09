@@ -25,26 +25,33 @@ process(){
 
 	# Check if file is HEIC, then convert it while moving it
 	if [[ $extension = "HEIC" ]]; then
-		printf "HEIC file!!!\r"
+		printf "Copying HEIC file $filename... "
 	elif [[ $extension = "MOV" ]]; then
-		printf "MOV file!!!\r"
+		printf "Copying MOV file $fileName... "
 	else
-		printf "Some other file!!!\r"
+		printf "Copying other file type $fileName... "
 	fi
-
 
 	# Remove the file from the device if the previous move command was successful
 	if [[ $? -eq 0 ]]; then
+		printf "done.\n"
+
+		printf "Removing $fileName from device... "
 		#rm $i
-		printf "Removing $fileName from device...\r"
+		if [[ $? -eq 0 ]]; then
+			printf "done.\n"
+		else
+			printf "$fileName not deleted from device.\n"
+		fi
+
 	else
 		printf "$fileName not copied from device.\n"
 	fi
 
-	sleep .1s
+	#sleep .1s
 
 	# Remove the current line's text in the console
-	printf "\033[K"
+	#printf "\033[K"
 
 }
 
@@ -67,8 +74,9 @@ recursion(){
 	#exit 1
 #fi
 
-# Inform user that they will have to grant sudo priveleges
-printf "INFO: This program will require you to grant sudo priveleges for various functionality.\n"
+#printf "INFO: This program will require you to grant sudo priveleges for various functionality.\n"
+printf "INFO: This program will move all image and movie files found in the DCIM "
+printf "directory of the connected device older than 30 days, and will then delete them from the device.\n"
 
 # Check to see if ifuse is installed
 if ! command -v ifuse >/dev/null 2>&1; then
@@ -125,8 +133,6 @@ else
 		printf "Error creating application root directory $ROOTHIDDEN. mkdir command exited with error code $?. Exiting.\n"
 		exit 1
 	fi
-
-	#chown $USER $ROOTHIDDEN
 fi
 
 # Check to see if the MOUNTDIR exists
@@ -178,7 +184,7 @@ recursion $DCIMDIR
 
 
 # Unmount the phone so it can just be unplugged without issue
-umount $MOUNTDIR
+fusermount -u $MOUNTDIR
 if [[ $? -ne 0 ]]; then
 	printf "Device failed to unmount. Use care when disconnecting device. Exiting.\n"
 	exit 1
