@@ -1,19 +1,20 @@
 #!/bin/bash
 
-process(){
+function createFileName {
+	inc=2
 
+	if [[ -e "$IMPORTDIR/$basefile.$extension" ]]; then
 
-	#
-	#
-	#
-	# Need to add code to check if the file about to be moved already exists,
-	# then add something to filename until it is unique
-	#
-	#
-	# Also need to do a check to only import/delete if file is older
-	# than 30 days so as to leave recent files on the device
-	#
-	#
+		while [[ -e "$IMPORTDIR/$basefile-$inc.$extension" ]]; do
+			let inc++
+		done
+
+		basefile="$basefile-$inc"
+
+	fi
+}
+
+function process {
 
 	i=$1
 
@@ -23,13 +24,63 @@ process(){
 	extension=${fileName##*.}    # JPG
 	fullDir=$(dirname ${i})      # /home/user/iPhone/DCIM/101APPLE
 
-	# Check if file is HEIC, then convert it while moving it
+
+	# Get date of file
+	# This works fine if the file hasn't been monkied with,
+	# but after I accidentally moved all the pictures from my phone to my comp,
+	# I found that the date it is getting is today's date. My phone is still Using
+	# the original file date, so I just need to figure out how to reliably pull
+	# that date
+	#
+	# exiftool is a good option here, but that's another piece of software
+	# that the user will have to have installed first. Not a big issue, but
+	# something to consider. Also, how does exiftool handle MOV creation dates?
+	# they are a different tag in the metadata.
+	local FILE_DATE=$(date -r $fullDir/$fileName +%F)
+
+	# Convert FILE_DATE to timestamp
+	local FILE_TIMESTAMP=$(date -d $FILE_DATE +%s)
+
+	# Compare the dates, and if the file's date is less, process
+	if [[ $FILE_TIMESTAMP > $LIMIT_TIMESTAMP ]]; then
+		printf "File is newer than 30 days. Skipping...\n"
+		return
+	fi
+
+	# Check file extension and take appropriate action
 	if [[ $extension = "HEIC" ]]; then
-		printf "Copying HEIC file $filename... "
+		if [[ $HEIC_CONVERT = "true" ]]; then
+			printf "Converting HEIC file $fileName..."
+			extension="jpg"
+			createFileName
+			./tifig -v -p $i "$IMPORTDIR/$basefile.$extension"
+		else
+			printf "Copying HEIC file $fileName... "
+			extension="heic"
+			createFileName
+			cp $i "$IMPORTDIR/$basefile.$extension"
+		fi
 	elif [[ $extension = "MOV" ]]; then
-		printf "Copying MOV file $fileName... "
+		if [[ $HANDBRAKE_CONVERT = "true" ]]; then
+			printf "Converting MOV file $fileName... "
+			extension="m4v"
+			createFileName
+			HandBrakeCLI -i $i -o "$IMPORTDIR/$basefile.$extension" -e x264 -q 20
+		else
+			printf "Copying MOV file $fileName... "
+			extension="mov"
+			createFileName
+			cp $i "$IMPORTDIR/$basefile.$extension"
+		fi
+	elif [[ $extension = "JPG" ]]; then
+		printf "Copying JPG file $fileName... "
+		extension="jpg"
+		createFileName
+		cp $i "$IMPORTDIR/$basefile.$extension"
 	else
-		printf "Copying other file type $fileName... "
+		printf "Copying file $fileName... "
+		createFileName
+		cp $i "$IMPORTDIR/$basefile.$extension"
 	fi
 
 	# Remove the file from the device if the previous move command was successful
@@ -48,14 +99,9 @@ process(){
 		printf "$fileName not copied from device.\n"
 	fi
 
-	#sleep .1s
-
-	# Remove the current line's text in the console
-	#printf "\033[K"
-
 }
 
-recursion(){
+function recursion {
 
 	for i in $1/*
 	do
@@ -68,34 +114,19 @@ recursion(){
 
 }
 
-# Check to see that the file is being run as root
-#if [[ $EUID -ne 0 ]]; then
-	#printf "You must run this as root. Exiting.\n"
-	#exit 1
-#fi
+#
+#
+# Set some variables
+#
+#
 
-#printf "INFO: This program will require you to grant sudo priveleges for various functionality.\n"
-printf "INFO: This program will move all image and movie files found in the DCIM "
-printf "directory of the connected device older than 30 days, and will then delete them from the device.\n"
+# Get current date as unix timestamp
+CURRENT_TIMESTAMP=$(date +%s)
+#printf "Current timestamp: "$CURRENT_TIMESTAMP"\n"
 
-# Check to see if ifuse is installed
-if ! command -v ifuse >/dev/null 2>&1; then
-	printf "ifuse is not installed. Please install ifuse and retry. Exiting.\n"
-	exit 1
-fi
-
-# Check that tifig is found in the current directory, and make it executable
-if [[ -f tifig ]]; then
-	chmod u+x ./tifig
-else
-	printf "tifig should be in the same directory as this script and wasn't found.\n"
-	printf "Any HEIC images will not be converted.\n"
-fi
-
-# Check to see if HandBrakeCLI is installed
-if ! command -v HandBrakeCLI >/dev/null 2>&1; then
-	printf "HandBrakeCLI is not installed. Any MOV files will not be converted.\n"
-fi
+# Then subtract 30 days from it
+LIMIT_TIMESTAMP=$[CURRENT_TIMESTAMP-2592000]
+#printf "Limit timestamp: "$LIMIT_TIMESTAMP"\n"
 
 # Should be pretty unique so as to not override any existing directory
 ROOTHIDDEN=~/.iosmediaimport
@@ -106,6 +137,42 @@ HIDDENMOUNT=/iosmountdir
 MOUNTDIR=$ROOTHIDDEN$HIDDENMOUNT
 DCIMDIR=$MOUNTDIR/DCIM
 
+# Define import directory
+IMPORTDIR=~/iOSMediaImport
+
+
+
+# Print some general information to the user
+printf "INFO: This program will move all image and movie files found in the DCIM "
+printf "directory of the connected device older than 30 days, and will then delete them from the device.\n"
+
+# Check to see if ifuse is installed
+if ! command -v ifuse >/dev/null 2>&1; then
+	printf "ifuse is not installed. Please install ifuse and retry. Exiting.\n"
+	exit 1
+fi
+
+# Set TIFIG_CONVERT to true, change to false if not available
+HEIC_CONVERT="true"
+
+# Check that tifig is found in the current directory, and make it executable
+if [[ -f tifig ]]; then
+	chmod u+x ./tifig
+else
+	printf "tifig should be in the same directory as this script and wasn't found.\n"
+	printf "Any HEIC images will not be converted.\n"
+	HEIC_CONVERT="false"
+fi
+
+# Set HEIC_CONVERT to true, change to false if not available
+HANDBRAKE_CONVERT="true"
+
+# Check to see if HandBrakeCLI is installed
+if ! command -v HandBrakeCLI >/dev/null 2>&1; then
+	printf "HandBrakeCLI is not installed. Any MOV files will not be converted.\n"
+	HANDBRAKE_CONVERT="false"
+fi
+
 # Check to see if the MOUNTDIR is mounted
 # Do this before checking if it exists, because if it's already mounted,
 # the check below won't find it
@@ -114,10 +181,10 @@ if [[ $(findmnt -M $MOUNTDIR) ]]; then
         printf "$MOUNTDIR is already mounted. Unmounting...\n"
 
         # Unmount the directory
-        umount $MOUNTDIR
+		fusermount -u $MOUNTDIR
 
         if [[ $? -ne 0 ]]; then
-                printf "Error unmounting $MOUNTDIR. umount command exited with error code $?. Exiting.\n"
+                printf "Error unmounting $MOUNTDIR. fusermount command exited with error code $?. Exiting.\n"
                 exit 1
         fi
 
@@ -146,9 +213,6 @@ else
 		exit 1
 	fi
 fi
-
-# Define import directory
-IMPORTDIR=~/iOSMediaImport
 
 # Check to see if import directory exists
 if [[ -d $IMPORTDIR ]]; then
@@ -179,8 +243,21 @@ printf "iOS device mounted successfully.\n"
 
 
 # Recursively loop through all files and directories found in DCIM
-# recursion calls the process method to convert/move files
+#+recursion calls the process method to convert/move files
 recursion $DCIMDIR
+
+
+#
+#
+# Need to delete phtos.sqlite database so that thumbnails and information for
+#+deleted photos goes away on phone? Is there a better way to do this?
+#
+#
+# deleting /User/Media/PhotoData/com.apple.photos.caches_metadata.plist,
+# /User/Media/PhotoData/Photos.sqlite, and
+# /User/Media/PhotoData/PhotosAux.sqlite should force the device to rebuild the
+# library
+#
 
 
 # Unmount the phone so it can just be unplugged without issue
