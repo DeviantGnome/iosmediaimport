@@ -11,11 +11,14 @@ Simply download this basic script (and optionally tifig), chmod +x both,
 then run it.
 <ul>
   <li>It will find (or create) the directory `.iosmediaimport/iosmountdir`.</li>
+  <li>It will find (or create) the directory `iOSMediaImport` in the user's home directory.</li>
   <li>Using ifuse, it will mount the first detected connected iOS device.</li>
   <li>It recursively loops through the DCIM directory on the mounted device,
-  finding and copying all found files to a directory in the current user's home directory.</li>
+  finding and copying all found files to the iOSMediaImport directory.</li>
   <li>If tifig is located in the same directory as this script, it will convert HEIC files to JPG (otherwise they will be left as HEIC).</li>
   <li>If HandBrakeCLI is installed, it will convert MOV files to m4v (otherwise they will be left as MOV)</li>
+  <li>It removes the thumbnail directory for each file transferred.</li>
+  <li>It renames the Photos.sqlite database on the device to Photos.sqlite.bak to force the device to rebuild the database with only the remaining files. This may require a restart of the device.</li>
 </ul>
 
 <b>Supported Platforms</b>
@@ -39,4 +42,6 @@ Too many to list! Hahaha...
     utilizing exiftool to obtain the original create date.</li>
     <li>No way to set any options or a config file. That's in my mind, but is low priority since
     I've largely built this to suit my needs.</li>
+    <li>Has to delete the sqlite database, otherwise the device thinks all the moved files still exist and your albums look goofy.
+    If there's a better way to do this, I'm all ears.</li>
 </ul>
