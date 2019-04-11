@@ -22,7 +22,10 @@ function process {
 	fileName=$(basename -- $i)   # IMG_1369.JPG
 	basefile=${fileName%.*}      # IMG_1369
 	extension=${fileName##*.}    # JPG
-	fullDir=$(dirname ${i})      # /home/user/iPhone/DCIM/101APPLE
+	fullDir=$(dirname ${i})      # /home/user/.iosmediaimport/iosmountdir/DCIM/101APPLE
+
+	# Create THUMBNAIL_DIRECTORY
+	THUMBNAIL_DIRECTORY="${fullDir/$DCIMDIR/$THUMBNAIL_DIRECTORY_STUB}/$fileName"
 
 
 	# Get date of file
@@ -77,6 +80,11 @@ function process {
 		extension="jpg"
 		createFileName
 		cp $i "$IMPORTDIR/$basefile.$extension"
+	elif [[ $extension = "PNG" ]]; then
+		printf "Copying PNG file $fileName... "
+		extension="png"
+		createFileName
+		cp $i "$IMPORTDIR/$basefile.$extension"
 	else
 		printf "Copying file $fileName... "
 		createFileName
@@ -88,11 +96,22 @@ function process {
 		printf "done.\n"
 
 		printf "Removing $fileName from device... "
-		#rm $i
+		rm $i
+
 		if [[ $? -eq 0 ]]; then
 			printf "done.\n"
 		else
 			printf "$fileName not deleted from device.\n"
+		fi
+
+		# Also need to remove THUMBNAIL_DIRECTORY
+		printf "Removing thumbnail from device... "
+		rm -rf $THUMBNAIL_DIRECTORY
+
+		if [[ $? -eq 0 ]]; then
+			printf "done.\n"
+		else
+			printf "Thumbnail not removed from device.\n"
 		fi
 
 	else
@@ -140,6 +159,8 @@ DCIMDIR=$MOUNTDIR/DCIM
 # Define import directory
 IMPORTDIR=~/iOSMediaImport
 
+# Define thumbnail directory stub
+THUMBNAIL_DIRECTORY_STUB=$MOUNTDIR"/PhotoData/Thumbnails/V2/DCIM"
 
 
 # Print some general information to the user
@@ -247,17 +268,18 @@ printf "iOS device mounted successfully.\n"
 recursion $DCIMDIR
 
 
-#
-#
-# Need to delete phtos.sqlite database so that thumbnails and information for
-#+deleted photos goes away on phone? Is there a better way to do this?
-#
-#
-# deleting /User/Media/PhotoData/com.apple.photos.caches_metadata.plist,
-# /User/Media/PhotoData/Photos.sqlite, and
-# /User/Media/PhotoData/PhotosAux.sqlite should force the device to rebuild the
-# library
-#
+# Rename the photos database to force the device to rebuild the database
+#+with only the remaining photos
+printf "Deleting Photos.sqlite database on device... "
+mv "$MOUNTDIR/PhotoData/Photos.sqlite" "$MOUNTDIR/PhotoData/Photos.sqlite.bak"
+
+if [[ $? -eq 0 ]]; then
+	printf "done.\n"
+	printf "Please note that your device may require a restart to trigger "
+	printf "the database to rebuild with your remaining photos and videos.\n"
+else
+	printf "The database failed to be removed.\n"
+fi
 
 
 # Unmount the phone so it can just be unplugged without issue
